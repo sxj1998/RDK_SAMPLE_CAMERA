@@ -1,6 +1,6 @@
 #include <stdio.h>
-
 #include "common_utils.h"
+#include "hbn_isp_api.h"
 
 #define MAX_SENSORS 4
 
@@ -9,6 +9,8 @@
 static int create_and_run_vflow(pipe_contex_t *pipe_contex);
 // static int lpwm_enable_chn(hbn_vnode_handle_t vin_node_handle, uint8_t enable, uint8_t chn);
 void vin_dump_func(hbn_vnode_handle_t vin_node_handle);
+void isp_dump_func(hbn_vnode_handle_t isp_node_handle);
+static int create_isp_node(pipe_contex_t *pipe_contex);
 
 
 static int settle = -1;
@@ -87,6 +89,7 @@ int main(int argc, char** argv)
 		printf("[handle_user_command] [传感器%d] 获取帧数据\n", i);
 		vin_node_handle = pipe_contex[i].vin_node_handle;
 		vin_dump_func(vin_node_handle);
+	isp_dump_func(pipe_contex[i].isp_node_handle);
 	}
 
 	printf("[main] === 资源清理阶段 ===\n");
@@ -101,6 +104,7 @@ int main(int argc, char** argv)
 		
 		printf("[main] [传感器%d] 关闭VIN节点...\n", i);
 		hbn_vnode_close(pipe_contex[i].vin_node_handle);
+		hbn_vnode_close(pipe_contex[i].isp_node_handle);
 		
 		printf("[main] [传感器%d] 销毁相机...\n", i);
 		hbn_camera_destroy(pipe_contex[i].cam_fd);
@@ -251,6 +255,74 @@ static int create_vin_node(pipe_contex_t *pipe_contex) {
 	return 0;
 }
 
+static int create_isp_node(pipe_contex_t *pipe_contex) {
+	vp_sensor_config_t *sensor_config = NULL;
+	isp_attr_t      *isp_attr = NULL;
+	isp_ichn_attr_t *isp_ichn_attr = NULL;
+	isp_ochn_attr_t *isp_ochn_attr = NULL;
+	hbn_vnode_handle_t *isp_node_handle = NULL;
+	hbn_buf_alloc_attr_t alloc_attr = {0};
+	uint32_t ichn_id = 0;
+	uint32_t ochn_id = 0;
+	int ret = 0;
+
+	printf("[create_isp_node] 创建ISP节点...\n");
+
+	sensor_config = pipe_contex->sensor_config;
+	isp_attr = sensor_config->isp_attr;
+	isp_ichn_attr = sensor_config->isp_ichn_attr;
+	isp_ochn_attr = sensor_config->isp_ochn_attr;
+	isp_node_handle = &pipe_contex->isp_node_handle;
+
+	// 打开ISP节点
+	printf("[create_isp_node] 打开ISP节点...\n");
+	ret = hbn_vnode_open(HB_ISP, 0, AUTO_ALLOC_ID, isp_node_handle);
+	if (ret != 0) {
+		printf("[create_isp_node] 错误: 打开ISP节点失败, ret = %d\n", ret);
+		return ret;
+	}
+
+	// 设置ISP节点属性
+	printf("[create_isp_node] 设置ISP节点属性...\n");
+	ret = hbn_vnode_set_attr(*isp_node_handle, isp_attr);
+	if (ret != 0) {
+		printf("[create_isp_node] 错误: 设置ISP节点属性失败, ret = %d\n", ret);
+		return ret;
+	}
+
+	// 设置ISP输出通道属性
+	printf("[create_isp_node] 设置ISP输出通道属性...\n");
+	ret = hbn_vnode_set_ochn_attr(*isp_node_handle, ochn_id, isp_ochn_attr);
+	if (ret != 0) {
+		printf("[create_isp_node] 错误: 设置ISP输出通道属性失败, ret = %d\n", ret);
+		return ret;
+	}
+
+	// 设置ISP输入通道属性
+	printf("[create_isp_node] 设置ISP输入通道属性...\n");
+	ret = hbn_vnode_set_ichn_attr(*isp_node_handle, ichn_id, isp_ichn_attr);
+	if (ret != 0) {
+		printf("[create_isp_node] 错误: 设置ISP输入通道属性失败, ret = %d\n", ret);
+		return ret;
+	}
+
+	// 设置输出缓冲区属性
+	printf("[create_isp_node] 设置ISP输出缓冲区属性...\n");
+	alloc_attr.buffers_num = 3;
+	alloc_attr.is_contig = 1;
+	alloc_attr.flags = HB_MEM_USAGE_CPU_READ_OFTEN
+						| HB_MEM_USAGE_CPU_WRITE_OFTEN
+						| HB_MEM_USAGE_CACHED;
+	ret = hbn_vnode_set_ochn_buf_attr(*isp_node_handle, ochn_id, &alloc_attr);
+	if (ret != 0) {
+		printf("[create_isp_node] 错误: 设置ISP输出缓冲区属性失败, ret = %d\n", ret);
+		return ret;
+	}
+
+	printf("[create_isp_node] ISP节点创建成功, 句柄: %d\n", (int)*isp_node_handle);
+	return 0;
+}
+
 int create_and_run_vflow(pipe_contex_t *pipe_contex) {
 	int32_t ret = 0;
 
@@ -271,6 +343,13 @@ int create_and_run_vflow(pipe_contex_t *pipe_contex) {
 		return ret;
 	}
 
+	printf("[create_and_run_vflow] 创建ISP节点...\n");
+	ret = create_isp_node(pipe_contex);
+	if (ret != 0) {
+		printf("[create_and_run_vflow] 错误: 创建ISP节点失败\n");
+		return ret;
+	}
+
 	// 创建HBN flow
 	printf("[create_and_run_vflow] 创建视频流...\n");
 	ret = hbn_vflow_create(&pipe_contex->vflow_fd);
@@ -283,6 +362,24 @@ int create_and_run_vflow(pipe_contex_t *pipe_contex) {
 	ret = hbn_vflow_add_vnode(pipe_contex->vflow_fd, pipe_contex->vin_node_handle);
 	if (ret != 0) {
 		printf("[create_and_run_vflow] 错误: 添加VIN节点到视频流失败, ret = %d\n", ret);
+		return ret;
+	}
+
+	printf("[create_and_run_vflow] 添加ISP节点到视频流...\n");
+	ret = hbn_vflow_add_vnode(pipe_contex->vflow_fd, pipe_contex->isp_node_handle);
+	if (ret != 0) {
+		printf("[create_and_run_vflow] 错误: 添加ISP节点到视频流失败, ret = %d\n", ret);
+		return ret;
+	}
+
+	printf("[create_and_run_vflow] 绑定VIN和ISP节点...\n");
+	ret = hbn_vflow_bind_vnode(pipe_contex->vflow_fd,
+							pipe_contex->vin_node_handle,
+							1, // online
+							pipe_contex->isp_node_handle,
+							0);
+	if (ret != 0) {
+		printf("[create_and_run_vflow] 错误: 绑定VIN和ISP节点失败, ret = %d\n", ret);
 		return ret;
 	}
 	
@@ -342,6 +439,51 @@ void vin_dump_func(hbn_vnode_handle_t vin_node_handle) {
 	printf("[vin_dump_func] 释放帧数据...\n");
 	hbn_vnode_releaseframe(vin_node_handle, ochn_id, &out_img);
 	printf("[vin_dump_func] 帧数据处理完成\n");
+}
+
+void isp_dump_func(hbn_vnode_handle_t isp_node_handle) {
+	int ret;
+	char dst_file[128];
+	uint32_t ochn_id = 0;
+	uint32_t timeout = 10000;
+	hbn_vnode_image_t out_img;
+
+	printf("[isp_dump_func] 获取ISP帧数据...\n");
+
+	// 调用hbn_vnode_getframe获取帧数据
+	ret = hbn_vnode_getframe(isp_node_handle, ochn_id, timeout, &out_img);
+	if (ret != 0) {
+		printf("[isp_dump_func] 错误: 从ISP通道%d获取帧失败(%d)\n", ochn_id, ret);
+		return;
+	}
+
+	// 将帧数据写入文件
+	snprintf(dst_file, sizeof(dst_file),
+		"isp_handle_%d_chn%d_%dx%d_stride_%d_frameid_%d_ts_%ld.yuv",
+		(int)isp_node_handle, ochn_id,
+		out_img.buffer.width, out_img.buffer.height, out_img.buffer.stride,
+		out_img.info.frame_id, out_img.info.timestamps);
+
+	printf("[isp_dump_func] 保存帧数据到文件: %s\n", dst_file);
+	printf("[isp_dump_func] ISP节点句柄 %d 输出 %dx%d(步长:%d), 缓冲区大小: %ld + %ld 帧ID: %d, 时间戳: %ld\n",
+			(int)isp_node_handle,
+			out_img.buffer.width, out_img.buffer.height,
+			out_img.buffer.stride,
+			out_img.buffer.size[0], out_img.buffer.size[1],
+			out_img.info.frame_id,
+			out_img.info.timestamps);
+
+	// 写入YUV数据（NV12格式，双平面）
+	dump_2plane_yuv_to_file(dst_file,
+			out_img.buffer.virt_addr[0],
+			out_img.buffer.virt_addr[1],
+			out_img.buffer.size[0],
+			out_img.buffer.size[1]);
+
+	// 释放帧数据
+	printf("[isp_dump_func] 释放帧数据...\n");
+	hbn_vnode_releaseframe(isp_node_handle, ochn_id, &out_img);
+	printf("[isp_dump_func] 帧数据处理完成\n");
 }
 
 // static int lpwm_enable_chn(hbn_vnode_handle_t vin_node_handle, uint8_t enable, uint8_t chn)
