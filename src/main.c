@@ -85,11 +85,13 @@ int main(int argc, char** argv)
 
 	hbn_vnode_handle_t vin_node_handle;
 	printf("[handle_user_command] 获取所有传感器的单帧数据...\n");
-	for (int i = 0; i < sensor_count; i++) {
-		printf("[handle_user_command] [传感器%d] 获取帧数据\n", i);
-		vin_node_handle = pipe_contex[i].vin_node_handle;
-		vin_dump_func(vin_node_handle);
-	isp_dump_func(pipe_contex[i].isp_node_handle);
+	for(int frametest=0; frametest<12; frametest++){
+		for (int i = 0; i < sensor_count; i++) {
+			printf("[handle_user_command] [传感器%d] 获取帧数据\n", i);
+			vin_node_handle = pipe_contex[i].vin_node_handle;
+			vin_dump_func(vin_node_handle);
+			isp_dump_func(pipe_contex[i].isp_node_handle);
+		}
 	}
 
 	printf("[main] === 资源清理阶段 ===\n");
