@@ -230,7 +230,7 @@ static void read_mipi_info_from_device_tree(const int device, struct mipi_proper
 		if (entry->d_type == DT_REG) { // Regular file
 			char filename[VP_MAX_BUF_SIZE] = {0};
 			int ret = snprintf(filename, sizeof(filename), "%s/%s", properties->device_path, entry->d_name);
-			if (ret < 0 || ret >= sizeof(filename)) {
+			if (ret < 0 || (size_t)ret >= sizeof(filename)) {
 				printf("Error: Failed to set filename\n");
 				return;
 			}
@@ -242,15 +242,15 @@ static void read_mipi_info_from_device_tree(const int device, struct mipi_proper
 					fread(&properties->pinctrl_names, sizeof(char), VP_MAX_BUF_SIZE, fp);
 				}  else if (strcmp(entry->d_name, "pinctrl-0") == 0) {
 					fread(&properties->pinctrl_0, sizeof(int32_t), sizeof(properties->pinctrl_0) / sizeof(int32_t), fp);
-					for (int i = 0; i < sizeof(properties->pinctrl_0) / sizeof(int32_t); ++i)
+					for (size_t i = 0; i < sizeof(properties->pinctrl_0) / sizeof(int32_t); ++i)
 						properties->pinctrl_0[i] = convert_endianness_int32(properties->pinctrl_0[i]);
 				} else if (strcmp(entry->d_name, "pinctrl-1") == 0) {
 					fread(&properties->pinctrl_1, sizeof(int32_t), sizeof(properties->pinctrl_1) / sizeof(int32_t), fp);
-					for (int i = 0; i < sizeof(properties->pinctrl_1) / sizeof(int32_t); ++i)
+					for (size_t i = 0; i < sizeof(properties->pinctrl_1) / sizeof(int32_t); ++i)
 						properties->pinctrl_1[i] = convert_endianness_int32(properties->pinctrl_1[i]);
 				} else if (strcmp(entry->d_name, "snrclk-idx") == 0) {
 					fread(&properties->snrclk_idx, sizeof(int32_t), sizeof(properties->snrclk_idx) / sizeof(int32_t), fp);
-					for (int i = 0; i < sizeof(properties->snrclk_idx) / sizeof(int32_t); ++i)
+					for (size_t i = 0; i < sizeof(properties->snrclk_idx) / sizeof(int32_t); ++i)
 						properties->snrclk_idx[i] = convert_endianness_int32(properties->snrclk_idx[i]);
 				}
 
@@ -279,7 +279,7 @@ static void read_vcon_info_from_device_tree(const int device, struct vcon_proper
 		if (entry->d_type == DT_REG) { // Regular file
 			char filename[VP_MAX_BUF_SIZE] = {0};
 			int ret = snprintf(filename, sizeof(filename), "%s/%s", properties->device_path, entry->d_name);
-			if (ret < 0 || ret >= sizeof(filename)) {
+			if (ret < 0 || (size_t)ret >= sizeof(filename)) {
 				printf("Error: Failed to set filename\n");
 				return;
 			}
@@ -300,15 +300,15 @@ static void read_vcon_info_from_device_tree(const int device, struct vcon_proper
 					properties->bus = convert_endianness_int32(properties->bus);
 				} else if (strcmp(entry->d_name, "rx_phy") == 0) {
 					fread(&properties->rx_phy, sizeof(int32_t), sizeof(properties->rx_phy) / sizeof(int32_t), fp);
-					for (int i = 0; i < sizeof(properties->rx_phy) / sizeof(int32_t); ++i)
+					for (size_t i = 0; i < sizeof(properties->rx_phy) / sizeof(int32_t); ++i)
 						properties->rx_phy[i] = convert_endianness_int32(properties->rx_phy[i]);
 				} else if (strcmp(entry->d_name, "pinctrl-0") == 0) {
 					fread(&properties->pinctrl_0, sizeof(int32_t), sizeof(properties->pinctrl_0) / sizeof(int32_t), fp);
-					for (int i = 0; i < sizeof(properties->pinctrl_0) / sizeof(int32_t); ++i)
+					for (size_t i = 0; i < sizeof(properties->pinctrl_0) / sizeof(int32_t); ++i)
 						properties->pinctrl_0[i] = convert_endianness_int32(properties->pinctrl_0[i]);
 				} else if (strcmp(entry->d_name, "gpio_oth") == 0) {
 					fread(&properties->gpio_oth, sizeof(int32_t), sizeof(properties->gpio_oth) / sizeof(int32_t), fp);
-					for (int i = 0; i < sizeof(properties->gpio_oth) / sizeof(int32_t); ++i)
+					for (size_t i = 0; i < sizeof(properties->gpio_oth) / sizeof(int32_t); ++i)
 						properties->gpio_oth[i] = convert_endianness_int32(properties->gpio_oth[i]);
 				}
 
@@ -662,7 +662,7 @@ void vp_sensor_detect_structed(csi_list_info_t *csi_list_info)
 
 		memset(csi_info_tmp.sensor_config_list, 0, sizeof(csi_info_tmp.sensor_config_list));
 		if (vcon_props_array[i].status[0] == 'o') {
-			for (int j = 0; j < vp_get_sensors_list_number(); j++) {
+			for (uint32_t j = 0; j < vp_get_sensors_list_number(); j++) {
 				if(!mclk_is_not_configed){
 					/* enable mclk */
 					write_mipi_host_freq(i, vp_sensor_config_list[j]->vin_attr_ex->mclk_ex_attr.mclk_freq);

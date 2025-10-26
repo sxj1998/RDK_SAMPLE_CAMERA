@@ -22,6 +22,10 @@
 #include "hb_camera_data_config.h"
 #include "cam_def.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Todo: remove define variable
 #define MAGIC_NUMBER 0x12345678
 #define AUTO_ALLOC_ID -1
@@ -95,4 +99,8 @@ void vp_sensor_detect_structed(csi_list_info_t *csi_list_info);
 
 int32_t vp_sensor_fixed_mipi_host(vp_sensor_config_t *sensor_config, vp_csi_config_t* mipi_config);
 int32_t vp_sensor_multi_fixed_mipi_host(vp_sensor_config_t *sensor_config, int used_mipi_host, vp_csi_config_t* mipi_config);
+
+#ifdef __cplusplus
+}
+#endif
 #endif // __VP_SENSORS_H__
