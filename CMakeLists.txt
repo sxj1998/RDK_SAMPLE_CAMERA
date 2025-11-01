@@ -21,7 +21,9 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(hbm_img_msgs REQUIRED)
 find_package(yaml_cpp_vendor REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # 交叉编译工具链配置
@@ -112,9 +114,11 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 ament_target_dependencies(
   ${PROJECT_NAME}
   "rclcpp"
+  "rclcpp_components"
   "std_msgs"
   "sensor_msgs"
   "yaml_cpp_vendor"
+  "hbm_img_msgs"
   "OpenCV"
 )
 
